@@ -49,4 +49,4 @@ def predict_safety():
     return jsonify({'SafeRoad': scale_value(safety_score, original_min, original_max, new_min, new_max)})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
