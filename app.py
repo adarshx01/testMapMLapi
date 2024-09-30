@@ -1,27 +1,42 @@
+import os
 from flask import Flask, request, jsonify
 import pickle
 import numpy as np
 from flask_cors import CORS
 import logging
 
+print("Starting app initialization...")
+
 # Load the trained ML model
-with open('prediction_model.pkl', 'rb') as model_file:
-    model = pickle.load(model_file)
+model_path = 'prediction_model.pkl'
+print(f"Attempting to load model from {model_path}")
+if os.path.exists(model_path):
+    with open(model_path, 'rb') as model_file:
+        model = pickle.load(model_file)
+    print("Model loaded successfully")
+else:
+    print(f"Error: {model_path} not found")
+    model = None
 
 app = Flask(__name__)
 
 # CORS configuration
-CORS(app, resources={r"/predict_safety": {"origins": "https://your-frontend-domain.com"}})
+CORS(app)
 
 # Logging configuration
-app.logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.DEBUG)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 app.logger.addHandler(handler)
 
+@app.route('/')
+def home():
+    return "Hello, World!"
+
 # Prediction route
 @app.route('/predict_safety', methods=['POST'])
 def predict_safety():
+    app.logger.debug("Received prediction request")
     try:
         data = request.json
         features = np.array([
@@ -42,6 +57,9 @@ def predict_safety():
             data['reported_crimes'],
             data['proximity_public_transport']
         ]).reshape(1, -1)
+
+        if model is None:
+            return jsonify({"error": "Model not loaded"}), 500
 
         safety_score = model.predict(features)[0]
 
@@ -65,12 +83,14 @@ def predict_safety():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "healthy"}), 200
+    return jsonify({"status": "healthy", "model_loaded": model is not None}), 200
 
 @app.errorhandler(Exception)
 def handle_exception(e):
     app.logger.error(f"Unhandled exception: {str(e)}")
     return jsonify({"error": "An unexpected error occurred"}), 500
 
+print("App initialization complete")
+
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
